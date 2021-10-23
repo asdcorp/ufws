@@ -21,9 +21,13 @@
 @echo off
 set "_media="
 set "_install_file="
+set "_params="
 
 if exist "%~dp0sources\SetupHost.exe" set "_media=%~dp0"
-if "[%1]" NEQ "[]" set "_media=%1"
+if "[%1]" NEQ "[]" (
+    set "_media=%1"
+    for /F "usebackq tokens=1,*" %%i in ('%*') do set "_params=%%j"
+)
 if "[%_media%]" EQU "[]" call :help & exit /b 1
 
 reg query HKEY_USERS\S-1-5-19 >NUL 2>&1
@@ -34,7 +38,7 @@ if "[%_install_file%]" EQU "[]" echo Specified volume does not appear to be an i
 if not exist "%_media%\sources\SetupHost.exe" echo SetupHost.exe is missing & exit /b 1
 
 echo +===============================================================+
-echo ^|                ufws (UnFuck Windows Setup) 1.0                ^|
+echo ^|                ufws (UnFuck Windows Setup) 1.1                ^|
 echo +===============================================================+
 echo.
 
@@ -45,13 +49,11 @@ echo Preparing setup...
 mkdir "%systemdrive%\$WINDOWS.~BT"
 attrib +h "%systemdrive%\$WINDOWS.~BT"
 
-mkdir "%systemdrive%\$WINDOWS.~BT\Boot"
-mkdir "%systemdrive%\$WINDOWS.~BT\Efi"
+call :copy_from_media Boot
+call :copy_from_media Efi
+call :copy_from_media Langpacks
+
 mkdir "%systemdrive%\$WINDOWS.~BT\Sources"
-
-xcopy /cherkyq "%_media%\boot" "%systemdrive%\$WINDOWS.~BT\Boot"
-xcopy /cherkyq "%_media%\efi" "%systemdrive%\$WINDOWS.~BT\Efi"
-
 pushd %systemdrive%\$WINDOWS.~BT\Sources
 echo \appraiserres.dll\ >ignore.txt
 echo .wim\ >>ignore.txt
@@ -63,16 +65,17 @@ popd
 
 echo.
 echo Running Setup... Do not close this window during the setup process!
+
 :start_setup
 pushd %systemdrive%\$WINDOWS.~BT\Sources
 if exist appraiserres.dll del /f appraiserres.dll
-SetupHost.exe /Install /Media /InstallFile "%_media%\sources\%_install_file%" /MediaPath "%systemdrive%\$WINDOWS.~BT"
+SetupHost.exe /Install /Media /InstallFile "%_media%\sources\%_install_file%" /MediaPath "%systemdrive%\$WINDOWS.~BT" %_params%
+set "_setuperr=%ERRORLEVEL%"
 popd
 
-set "_setuperr=%ERRORLEVEL%"
 if %_setuperr% EQU -2147023429 goto :start_setup
 
-reg query HKEY_LOCAL_MACHINE\SYSTEM\Setup\MoSetup /v Cleanup >NUL 2>&1
+reg query HKLM\SYSTEM\Setup\MoSetup /v Cleanup >NUL 2>&1
 if %ERRORLEVEL% EQU 0 echo Cleaning up... & call :cleanup
 
 echo Done. Thanks.
@@ -91,11 +94,19 @@ reg delete HKLM\SYSTEM\Setup\MoSetup /v CorrelationVector /f >NUL 2>&1
 reg delete HKLM\SYSTEM\Setup\MoSetup /v Cleanup /f >NUL 2>&1
 exit /b
 
+:copy_from_media
+if not exist "%_media%\%1" exit /b
+mkdir "%systemdrive%\$WINDOWS.~BT\%1"
+xcopy /cherkyq "%_media%\%1" "%systemdrive%\$WINDOWS.~BT\%1"
+exit /b
+
 :help
 echo Usage:
-echo %~nx0 ^<install_source_path^>
+echo %~nx0 ^<install_source_path^> [param1] [param2] ...
 echo.
 echo Examples:
 echo %~nx0 E:
 echo %~nx0 D:\extracted_iso
+echo %~nx0 E: /Console
+echo %~nx0 E: /Pkey XXXXX-XXXXX-XXXXX-XXXXX-XXXXX /Console
 exit /b
