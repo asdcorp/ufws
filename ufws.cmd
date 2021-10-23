@@ -19,12 +19,53 @@
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 @echo off
+goto :main
+
+:help
+echo Usage:
+echo %~nx0 ^<install_source_path^> [param1] [param2] ...
+echo.
+echo Examples:
+echo %~nx0 E:
+echo %~nx0 D:\extracted_iso
+echo %~nx0 E: /Console
+echo %~nx0 E: /Pkey XXXXX-XXXXX-XXXXX-XXXXX-XXXXX /Console
+exit /b
+
+:copy_from_media
+if not exist "%_media%\%1" exit /b
+mkdir "%systemdrive%\$WINDOWS.~BT\%1"
+xcopy /cherkyq "%_media%\%1" "%systemdrive%\$WINDOWS.~BT\%1"
+exit /b
+
+:cleanup
+if exist "%systemdrive%\$WINDOWS.~BT" rmdir /q /s "%systemdrive%\$WINDOWS.~BT" >NUL 2>&1
+if exist "%systemdrive%\$WINDOWS.~BT" (
+    takeown /f "%systemdrive%\$WINDOWS.~BT" /a /r /d y >NUL 2>&1
+    icacls "%systemdrive%\$WINDOWS.~BT" /grant "%USERDOMAIN%\%USERNAME%":^(F^) /t >NUL 2>&1
+    rmdir /q /s "%systemdrive%\$WINDOWS.~BT" >NUL 2>&1
+)
+reg delete HKLM\SYSTEM\Setup\MoSetup\Tracking /f >NUL 2>&1
+reg delete HKLM\SYSTEM\Setup\MoSetup\Volatile /f >NUL 2>&1
+reg delete HKLM\SYSTEM\Setup\MoSetup /v CorrelationVector /f >NUL 2>&1
+reg delete HKLM\SYSTEM\Setup\MoSetup /v Cleanup /f >NUL 2>&1
+exit /b
+
+:main
+set "_build="
 set "_media="
 set "_install_file="
 set "_params="
+set "_headless_supported=0"
 
 if exist "%~dp0sources\SetupHost.exe" set "_media=%~dp0"
+if "[%1]" EQU "[?headless?]" goto :skip_param_checks
+
+for /f "tokens=6 delims=[]. " %%i in ('ver') do set _build=%%i
+if %_build% GEQ 10240 set "_headless_supported=1"
+
 if "[%1]" NEQ "[]" (
+    set "_headless_supported=0"
     set "_media=%1"
     for /F "usebackq tokens=1,*" %%i in ('%*') do set "_params=%%j"
 )
@@ -33,12 +74,15 @@ if "[%_media%]" EQU "[]" call :help & exit /b 1
 reg query HKEY_USERS\S-1-5-19 >NUL 2>&1
 if %ERRORLEVEL% NEQ 0 echo This script requires to be run as an administrator & pause & exit /b 1
 
+:skip_param_checks
 for %%i in (esd wim swm) do if exist "%_media%\sources\install.%%i" set "_install_file=install.%%i"
 if "[%_install_file%]" EQU "[]" echo Specified volume does not appear to be an install source & exit /b 1
 if not exist "%_media%\sources\SetupHost.exe" echo SetupHost.exe is missing & exit /b 1
 
+if "[%1]" EQU "[?headless?]" goto :start_setup
+
 echo +===============================================================+
-echo ^|                ufws (UnFuck Windows Setup) 1.1                ^|
+echo ^|                ufws (UnFuck Windows Setup) 1.2                ^|
 echo +===============================================================+
 echo.
 
@@ -63,6 +107,8 @@ xcopy /cherkyq /EXCLUDE:ignore.txt "%_media%\sources" .
 del /f ignore.txt
 popd
 
+if %_headless_supported% EQU 1 start "Setup" conhost --headless "%~f0" ?headless? & exit /b
+
 echo.
 echo Running Setup... Do not close this window during the setup process!
 
@@ -80,33 +126,3 @@ if %ERRORLEVEL% EQU 0 echo Cleaning up... & call :cleanup
 
 echo Done. Thanks.
 exit /b %_setuperr%
-
-:cleanup
-if exist "%systemdrive%\$WINDOWS.~BT" rmdir /q /s "%systemdrive%\$WINDOWS.~BT" >NUL 2>&1
-if exist "%systemdrive%\$WINDOWS.~BT" (
-    takeown /f "%systemdrive%\$WINDOWS.~BT" /a /r /d y >NUL 2>&1
-    icacls "%systemdrive%\$WINDOWS.~BT" /grant "%USERDOMAIN%\%USERNAME%":^(F^) /t >NUL 2>&1
-    rmdir /q /s "%systemdrive%\$WINDOWS.~BT" >NUL 2>&1
-)
-reg delete HKLM\SYSTEM\Setup\MoSetup\Tracking /f >NUL 2>&1
-reg delete HKLM\SYSTEM\Setup\MoSetup\Volatile /f >NUL 2>&1
-reg delete HKLM\SYSTEM\Setup\MoSetup /v CorrelationVector /f >NUL 2>&1
-reg delete HKLM\SYSTEM\Setup\MoSetup /v Cleanup /f >NUL 2>&1
-exit /b
-
-:copy_from_media
-if not exist "%_media%\%1" exit /b
-mkdir "%systemdrive%\$WINDOWS.~BT\%1"
-xcopy /cherkyq "%_media%\%1" "%systemdrive%\$WINDOWS.~BT\%1"
-exit /b
-
-:help
-echo Usage:
-echo %~nx0 ^<install_source_path^> [param1] [param2] ...
-echo.
-echo Examples:
-echo %~nx0 E:
-echo %~nx0 D:\extracted_iso
-echo %~nx0 E: /Console
-echo %~nx0 E: /Pkey XXXXX-XXXXX-XXXXX-XXXXX-XXXXX /Console
-exit /b
