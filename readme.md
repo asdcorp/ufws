@@ -15,13 +15,15 @@ administrator. It will detect the path and automatically start the setup wizard.
 
 ### Running from administrative command prompt
 ```
-ufws.cmd <install_source_path>
+ufws.cmd <install_source_path> [param1] [param2] ...
 ```
 
 #### Examples
 ```
 ufws.cmd E:
 ufws.cmd D:\extracted_iso
+ufws.cmd E: /Console
+ufws.cmd E: /Pkey XXXXX-XXXXX-XXXXX-XXXXX-XXXXX /Console
 ```
 
 License
