@@ -19,6 +19,10 @@
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 @echo off
+if "[%~1]" EQU "[?headless?]" (
+    if "[%_media%]" EQU [] msg "%USERNAME%" "ufws failed"
+    goto :start_setup
+)
 goto :main
 
 :help
@@ -33,40 +37,22 @@ echo %~nx0 E: /Pkey XXXXX-XXXXX-XXXXX-XXXXX-XXXXX /Console
 exit /b
 
 :copy_from_media
-if not exist "%_media%\%1" exit /b
-mkdir "%systemdrive%\$WINDOWS.~BT\%1"
-xcopy /cherkyq "%_media%\%1" "%systemdrive%\$WINDOWS.~BT\%1"
-exit /b
-
-:cleanup
-if exist "%systemdrive%\$WINDOWS.~BT" rmdir /q /s "%systemdrive%\$WINDOWS.~BT" >NUL 2>&1
-if exist "%systemdrive%\$WINDOWS.~BT" (
-    takeown /f "%systemdrive%\$WINDOWS.~BT" /a /r /d y >NUL 2>&1
-    icacls "%systemdrive%\$WINDOWS.~BT" /grant "%USERDOMAIN%\%USERNAME%":^(F^) /t >NUL 2>&1
-    rmdir /q /s "%systemdrive%\$WINDOWS.~BT" >NUL 2>&1
-)
-reg delete HKLM\SYSTEM\Setup\MoSetup\Tracking /f >NUL 2>&1
-reg delete HKLM\SYSTEM\Setup\MoSetup\Volatile /f >NUL 2>&1
-reg delete HKLM\SYSTEM\Setup\MoSetup /v CorrelationVector /f >NUL 2>&1
-reg delete HKLM\SYSTEM\Setup\MoSetup /v Cleanup /f >NUL 2>&1
+if not exist "%_media%\%~1" exit /b
+mkdir "%systemdrive%\$WINDOWS.~BT\%~1"
+xcopy /cherkyq "%_media%\%~1" "%systemdrive%\$WINDOWS.~BT\%~1"
 exit /b
 
 :main
-set "_build="
+set "_version=1.3"
 set "_media="
 set "_install_file="
 set "_params="
-set "_headless_supported=0"
+set "_auto=1"
 
 if exist "%~dp0sources\SetupHost.exe" set "_media=%~dp0"
-if "[%1]" EQU "[?headless?]" goto :skip_param_checks
-
-for /f "tokens=6 delims=[]. " %%i in ('ver') do set _build=%%i
-if %_build% GEQ 10240 set "_headless_supported=1"
-
-if "[%1]" NEQ "[]" (
-    set "_headless_supported=0"
-    set "_media=%1"
+if "[%~1]" NEQ "[]" (
+    set "_auto=0"
+    set "_media=%~1"
     for /F "usebackq tokens=1,*" %%i in ('%*') do set "_params=%%j"
 )
 if "[%_media%]" EQU "[]" call :help & exit /b 1
@@ -74,20 +60,19 @@ if "[%_media%]" EQU "[]" call :help & exit /b 1
 reg query HKEY_USERS\S-1-5-19 >NUL 2>&1
 if %ERRORLEVEL% NEQ 0 echo This script requires to be run as an administrator & pause & exit /b 1
 
-:skip_param_checks
 for %%i in (esd wim swm) do if exist "%_media%\sources\install.%%i" set "_install_file=install.%%i"
 if "[%_install_file%]" EQU "[]" echo Specified volume does not appear to be an install source & exit /b 1
 if not exist "%_media%\sources\SetupHost.exe" echo SetupHost.exe is missing & exit /b 1
+if not exist "%_media%\sources\SetupPrep.exe" echo SetupPrep.exe is missing & exit /b 1
 
-if "[%1]" EQU "[?headless?]" goto :start_setup
-
-echo +===============================================================+
-echo ^|                ufws (UnFuck Windows Setup) 1.2                ^|
-echo +===============================================================+
+echo ======================================================================
+echo ufws (UnFuck Windows Setup) %_version%
+echo https://github.com/uwuowouwu420/ufws
+echo ======================================================================
 echo.
 
 echo Checking for previous setup residues and cleaning them...
-call :cleanup
+start /b /wait "" "%_media%\sources\SetupPrep.exe" /Cleanup
 
 echo Preparing setup...
 mkdir "%systemdrive%\$WINDOWS.~BT"
@@ -107,9 +92,10 @@ xcopy /cherkyq /EXCLUDE:ignore.txt "%_media%\sources" .
 del /f ignore.txt
 popd
 
-if %_headless_supported% EQU 1 start "Setup" conhost --headless "%~f0" ?headless? & exit /b
-
 echo.
+if %_auto% EQU 1 powershell -NoProfile -Command Start-Process -FilePath "%~f0" -ArgumentList "?headless?" -WindowStyle Hidden
+if %_auto% EQU 1 if %ERRORLEVEL% EQU 0 exit /b
+
 echo Running Setup... Do not close this window during the setup process!
 
 :start_setup
@@ -122,7 +108,7 @@ popd
 if %_setuperr% EQU -2147023429 goto :start_setup
 
 reg query HKLM\SYSTEM\Setup\MoSetup /v Cleanup >NUL 2>&1
-if %ERRORLEVEL% EQU 0 echo Cleaning up... & call :cleanup
+if %ERRORLEVEL% EQU 0 echo Cleaning up... & start /b /wait "" "%_media%\sources\SetupPrep.exe" /Cleanup
 
 echo Done. Thanks.
 exit /b %_setuperr%
