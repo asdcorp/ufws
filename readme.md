@@ -4,8 +4,9 @@ ufws (UnFuck Windows Setup)
 is a simple script to bypass Windows 11 system requirements when upgrading from
 Windows 10. For clean installation bypass check `alternative_bypass.md`.
 
-**ufws** is meant to be used with an unmodified installation media. Any issues
-caused by usage of a modified installation media will be ignored.
+**ufws** is meant to be used with an unmodified installation medium. Any issues
+caused by usage of such medium will be ignored. Never use more than one bypass
+method on single installation medium.
 
 Usage
 -----
