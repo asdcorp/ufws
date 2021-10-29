@@ -43,7 +43,7 @@ xcopy /cherkyq "%_media%\%~1" "%systemdrive%\$WINDOWS.~BT\%~1"
 exit /b
 
 :main
-set "_version=1.3"
+set "_version=1.4"
 set "_media="
 set "_install_file="
 set "_params="

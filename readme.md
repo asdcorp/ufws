@@ -17,6 +17,9 @@ prompt or directly.
 Place **ufws** in the root of the installation media and run it as an
 administrator. It will detect the path and automatically start the setup wizard.
 
+For direct usage from root of installation media you can also use `lufws.cmd`
+which is a lite version of **ufws** with different bypass method.
+
 ### Running from administrative command prompt
 ```
 ufws.cmd <install_source_path> [param1] [param2] ...
