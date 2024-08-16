@@ -8,6 +8,17 @@ Windows 10. For clean installation bypass check `alternative_bypass.md`.
 caused by usage of such medium will be ignored. Never use more than one bypass
 method on single installation medium.
 
+Archival notice
+---------------
+As of build 27686 Microsoft has made changes to the setup process, causing this
+tool to no longer work. Both `ufws.cmd` and `lufws.cmd` scripts are affected.
+For this reason the project is being archived, as no further development is
+being planned.
+
+At the time of writing this notice, the only known working bypass for builds
+past 27686 is the one shown in the [alternative_bypass.md](alternative_bypass.md)
+file.
+
 Usage
 -----
 **ufws** can be used in two ways. You can run it from an administrative command
